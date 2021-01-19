@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <RootNamespace>nDriven.Telligent.ThemeUtils</RootNamespace>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>nDriven.Telligent.ThemeUtils</PackageId>
+        <PackageVersion>1.0.0.0</PackageVersion>
+        <Title>Telligent ThemeUtils</Title>
+        <Authors>Casey Gum</Authors>
+        <Description>.NetCore command-line app to explode/package exported theme files</Description>
+        <Copyright>Copyright 2021, nDriven Consulting, LLC</Copyright>
+        <PackageProjectUrl>https://github.com/caseygum/telligent-theme-utils</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/caseygum/telligent-theme-utils/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/caseygum/telligent-theme-utils</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>telligent</PackageTags>
+        <Company>nDriven Consulting, LLC</Company>
+        <Product>Telligent ThemeUtils</Product>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <FileVersion>1.0.0.0</FileVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    </ItemGroup>
+
+</Project>
