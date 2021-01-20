@@ -16,7 +16,7 @@ namespace nDriven.Telligent.ThemeUtils
 
         public TextWriter Logger { get; }
 
-        public ThemeExtractor([NotNull] string themeFilePath, [NotNull] string outputDirectory, TextWriter logger = null)
+        public ThemeExtractor([NotNull] string themeFilePath, [NotNull] string outputDirectory, bool clean = false, TextWriter logger = null)
         {
             ThemeFilePath = themeFilePath.Trim();
             if (!File.Exists(ThemeFilePath))
@@ -25,11 +25,16 @@ namespace nDriven.Telligent.ThemeUtils
             }
 
             OutputDirectory = outputDirectory.Trim();
+            if (Directory.Exists(OutputDirectory) && clean)
+            {
+                Directory.Delete(OutputDirectory, true);
+            }
+
             if (!Directory.Exists(OutputDirectory))
             {
                 Directory.CreateDirectory(OutputDirectory);
             }
-
+            
             Logger = logger ?? Console.Out;
         }
 
@@ -150,7 +155,7 @@ namespace nDriven.Telligent.ThemeUtils
                     fileName += ".js";
                     break;
                 default:
-                    fileName += $".{language}";
+                    fileName += ".txt";
                     break;
             }
 
