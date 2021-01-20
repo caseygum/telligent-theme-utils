@@ -154,11 +154,8 @@ namespace nDriven.Telligent.ThemeUtils
                 case "javascript":
                     fileName += ".js";
                     break;
-                case "unknown":
-                    fileName += ".txt";
-                    break;
                 default:
-                    fileName += $".{language}";
+                    fileName += ".txt";
                     break;
             }
 
