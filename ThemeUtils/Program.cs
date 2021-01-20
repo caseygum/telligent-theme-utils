@@ -39,8 +39,9 @@ namespace nDriven.Telligent.ThemeUtils
                 Console.WriteLine("You must specify an output directory --outputDir=OUTPUT_DIRECTORY");
                 return;
             }
+            var clean = GetArgumentFlag(args, "clean");
 
-            var themeExtractor = new ThemeExtractor(themeFilePath, outputDirectory);
+            var themeExtractor = new ThemeExtractor(themeFilePath, outputDirectory, clean);
             try
             {
                 themeExtractor.Extract();
