@@ -6,12 +6,11 @@
 Given an exported Telligent theme file (or a file with multiple themes), expands out contents into a
 directory structure.  This makes it easier to diff changes between theme versions.
 ````
-ThemeUtils --extract --themeFile=PATH_TO_INPUT_THEME_FILE --outputDir=PATH_TO_OUTPUT_DIR
+ThemeUtils --extract [--clean] --themeFile=PATH_TO_INPUT_THEME_FILE --outputDir=PATH_TO_OUTPUT_DIR
 ````
 
 **Package Theme**
-
-*Note: this isn't implemented yet*
+Given an extracted Telligent theme directory, repackages contents into a theme XML file.
 ````
-ThemeUtils --pacakge --sourceDir=PATH_TO_SOURCE_DIR --themeFile=PATH_TO_OUTPUT_THEME_FILE 
+ThemeUtils --package [--clean] --sourceDir=PATH_TO_SOURCE_DIR --themeFile=PATH_TO_OUTPUT_THEME_FILE 
 ````

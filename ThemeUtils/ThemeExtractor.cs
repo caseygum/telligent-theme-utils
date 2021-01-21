@@ -9,7 +9,6 @@ namespace nDriven.Telligent.ThemeUtils
 {
     public class ThemeExtractor
     {
-        private const string PreviewImagePrefix = "previewImage__";
         
         public string ThemeFilePath { get; }
         public string OutputDirectory { get; }
@@ -25,10 +24,20 @@ namespace nDriven.Telligent.ThemeUtils
             }
 
             OutputDirectory = outputDirectory.Trim();
-            if (Directory.Exists(OutputDirectory) && clean)
+            if (Directory.Exists(OutputDirectory))
             {
-                Directory.Delete(OutputDirectory, true);
+                if (clean)
+                {
+                    Directory.Delete(OutputDirectory, true);
+                }
+                else
+                {
+                    throw new ArgumentException(
+                        $"Directory already exists: {outputDirectory}.  Use the --clean flag to delete directory before extracting.",
+                        outputDirectory);
+                }
             }
+            
 
             if (!Directory.Exists(OutputDirectory))
             {
@@ -41,19 +50,19 @@ namespace nDriven.Telligent.ThemeUtils
         public void Extract()
         {
             var xdoc = XDocument.Load(ThemeFilePath);
-            if (xdoc.Root == null) throw new ArgumentException("Xml root element not found.");
-            if (xdoc.Root.Name == "themes")
+            if (xdoc.Root == null) throw new ArgumentException("XML root element not found.");
+            if (xdoc.Root.Name == Constants.ThemesElementName)
             {
                 foreach (var themeElement in xdoc.Root.Elements())
                 {
                     ExtractTheme(themeElement);
                 }
                 
-            } else if (xdoc.Root.Name == "theme")
+            } else if (xdoc.Root.Name == Constants.ThemeElementName)
             {
                 ExtractTheme(xdoc.Root);
             }
-            else throw new ArgumentException($"XML root element must be <themes> or <theme>.  Found <{xdoc.Root.Name}> instead.");
+            else throw new ArgumentException($"XML root element must be <{Constants.ThemesElementName}> or <{Constants.ThemeElementName}>.  Found <{xdoc.Root.Name}> instead.");
             
             Logger.WriteLine("Done!");
         }
@@ -61,13 +70,13 @@ namespace nDriven.Telligent.ThemeUtils
         private void ExtractTheme(XElement themeElement)
         {
             // Get theme name.
-            var themeName = themeElement.Attribute("name")?.Value ?? "theme";
+            var themeName = themeElement.Attribute(Constants.NameAttributeName)?.Value ?? Constants.ThemesElementName;
             
-            var themeType = GetThemeType(themeElement);
-            Logger.WriteLine($"Found theme: {themeName} - {themeType}");
+            var themeTypeName = GetThemeType(themeElement).Name;
+            Logger.WriteLine($"Found theme: {themeName} - {themeTypeName}");
 
             // Create theme folder.
-            var themeDir = Path.Combine(OutputDirectory, themeName, themeType);
+            var themeDir = Path.Combine(OutputDirectory, themeName, themeTypeName);
             if (!Directory.Exists(themeDir))
             {
                 Directory.CreateDirectory(themeDir);
@@ -75,59 +84,50 @@ namespace nDriven.Telligent.ThemeUtils
             
             Logger.WriteLine($"Extracting theme to {themeDir}...");
             
-            
             // Write theme metadata
-            ExtractMetadata(themeElement, themeDir);
+            ExtractMetadata(themeElement, themeDir, Constants.ThemeMetadataFilename);
             
             foreach (var elem in themeElement.Elements())
             {
                 var nodeName = elem.Name.LocalName;
                 switch (nodeName)
                 {
-                    case "headScript":
-                    case "bodyScript":
+                    case Constants.HeadScriptElementName:
+                    case Constants.BodyScriptElementName:
                         ExtractContentScript(elem, themeDir);
                         break;
-                    case "configuration":
-                    case "paletteTypes":
+                    case Constants.ConfigurationElementName:
+                    case Constants.PaletteTypesElementName:
                         ExtractCData(elem, themeDir, "xml");
                         break;
-                    case "languageResources":
+                    case Constants.LanguageResourcesElementName:
                         ExtractLanguageResources(elem, themeDir);
                         break;
-                    case "files":
-                    case "javascriptFiles":
-                    case "styleFiles":
+                    case Constants.FilesElementName:
+                    case Constants.JavascriptFilesElementName:
+                    case Constants.StyleFilesElementName:
                         ExtractDirectory(elem, themeDir);
                         break;
-                    case "previewImage":
-                        ExtractFile(elem, themeDir, PreviewImagePrefix);
+                    case Constants.PreviewImageElementName:
+                        ExtractFile(elem, themeDir, Constants.PreviewImagePrefix);
                         break;
-                    case "pageLayouts":
+                    case Constants.PageLayoutsElementName:
                         ExtractPageLayouts(elem, themeDir);
+                        break;
+                    case Constants.ScopedPropertiesElementName:
+                        ExtractXml(elem, themeDir);
                         break;
                 }
             }
         }
 
-        private string GetThemeType(XElement themeElement)
+        private ThemeType GetThemeType(XElement themeElement)
         {
-            var typeId = themeElement.Attribute("themeTypeId")?.Value ?? Guid.Empty.ToString();
-
-            switch (typeId)
-            {
-                case "0c647246673542f9875dc8b991fe739b":
-                    return "Site";
-                case "a3b17ab0af5f11dda3501fcf55d89593":
-                    return "Blog";
-                case "c6108064af6511ddb074de1a56d89593":
-                    return "Group";
-                default:
-                    return $"Unknown Theme Type ({typeId})";
-            }
+            var typeId = themeElement.Attribute(Constants.ThemeTypeIdAttributeName)?.Value ?? Guid.Empty.ToString().Replace("-","");
+            return ThemeType.FromId(typeId);
         }
 
-        private void ExtractMetadata(XElement element, string outputDir, string fileName = "metadata.json")
+        private void ExtractMetadata(XElement element, string outputDir, string fileName)
         {
             var metaData = new Dictionary<string, string>();
             foreach (var attr in element.Attributes())
@@ -143,19 +143,19 @@ namespace nDriven.Telligent.ThemeUtils
 
         private void ExtractContentScript(XElement scriptElement, string outputDir)
         {
-            var language = scriptElement.Attribute("language")?.Value.ToLowerInvariant() ?? "txt";
+            var language = scriptElement.Attribute(Constants.LanguageAttributeName)?.Value ?? Constants.UnknownLanguageName;
             var type = scriptElement.Name.LocalName;
             var fileName = scriptElement.Name.LocalName;
             switch (language)
             {
-                case "velocity":
-                    fileName += ".vm";
+                case Constants.VelocityLanguageName:
+                    fileName += $".{Constants.VelocityLanguageExtension}";
                     break;
-                case "javascript":
-                    fileName += ".js";
+                case Constants.JavaScriptLanguageName:
+                    fileName += $".{Constants.JavaScriptLanguageExtension}";
                     break;
                 default:
-                    fileName += ".txt";
+                    fileName += $".{Constants.UnknownLanguageExtension}";
                     break;
             }
 
@@ -168,12 +168,20 @@ namespace nDriven.Telligent.ThemeUtils
 
         private void ExtractLanguageResources(XElement resElement, string outputDir)
         {
-            var langResPath = ExtractCData(resElement, outputDir, "xml");
+            var langResPath = ExtractCData(resElement, outputDir, Constants.XmlExtension);
             var resDoc = XDocument.Load(langResPath);
             var resources = resDoc.Root.Elements().ToArray();
-            Array.Sort(resources, (e1, e2) => e1.Attribute("name").Value.CompareTo(e2.Attribute("name").Value));
+            Array.Sort(resources, 
+                (e1, e2) => 
+                    e1.Attribute(Constants.NameAttributeName).Value
+                        .CompareTo(e2.Attribute(Constants.NameAttributeName).Value));
+            var langKey = resDoc.Root.Attribute(Constants.LanguageKeyAttributeName);
             resDoc.Root.ReplaceAll(resources);
-            resDoc.Save(langResPath);
+            if (langKey != null)
+            {
+                resDoc.Root.SetAttributeValue(langKey.Name, langKey.Value);
+            }
+            SerializationUtils.SaveXml(resDoc, langResPath);
         }
 
         private string ExtractCData(XElement element, string outputDir, string fileExtension)
@@ -192,19 +200,19 @@ namespace nDriven.Telligent.ThemeUtils
         private string ExtractXml(XElement element, string outputDir)
         {
             var type = element.Name.LocalName;
-            var fileName = $"{element.Name.LocalName}.xml";
+            var fileName = $"{element.Name.LocalName}.{Constants.XmlExtension}";
             
             var outputPath = Path.Combine(outputDir, fileName);
             Logger.WriteLine($"Extracting {type} to {outputPath}.");
             
-            element.Save(outputPath);
+            SerializationUtils.SaveXml(element, outputPath);
 
             return outputPath;
         }
         
         private string ExtractPageLayouts(XElement layoutsElement, string outputDir)
         {
-            var layoutsDir = Path.Combine(outputDir, "pageLayouts");
+            var layoutsDir = Path.Combine(outputDir, Constants.PageLayoutsElementName);
             if (!Directory.Exists(layoutsDir))
             {
                 Directory.CreateDirectory(layoutsDir);
@@ -217,13 +225,13 @@ namespace nDriven.Telligent.ThemeUtils
                 var nodeName = elem.Name.LocalName;
                 switch (nodeName)
                 {
-                    case "headers":
-                    case "footers":
-                    case "pages":
-                    case "scopedProperties":
+                    case Constants.HeadersElementName:
+                    case Constants.FootersElementName:
+                    case Constants.PagesElementName:
+                    case Constants.ScopedPropertiesElementName:
                         ExtractXml(elem, layoutsDir);
                         break;
-                    case "contentFragments":
+                    case Constants.ContentFragmentsElementName:
                         ExtractContentFragments(elem, layoutsDir);
                         break;
                 }
@@ -234,7 +242,7 @@ namespace nDriven.Telligent.ThemeUtils
 
         private string ExtractContentFragments(XElement fragmentsElement, string outputDir)
         {
-            var fragmentsDir = Path.Combine(outputDir, "contentFragments");
+            var fragmentsDir = Path.Combine(outputDir, Constants.ContentFragmentsElementName);
             if (!Directory.Exists(fragmentsDir))
             {
                 Directory.CreateDirectory(fragmentsDir);
@@ -242,21 +250,28 @@ namespace nDriven.Telligent.ThemeUtils
             
             Logger.WriteLine($"Extracting content fragments to {fragmentsDir}...");
 
-            var scriptedFragmentsElement = fragmentsElement.Elements("scriptedContentFragments").FirstOrDefault();
+            var scriptedFragmentsElement = fragmentsElement.Elements(Constants.ScriptedContentFragmentsElementName).FirstOrDefault();
+            
             if (scriptedFragmentsElement != null)
             {
+                var dirMetadata = new DirectoryMetadata();
+                var i = 0;
                 foreach (var elem in scriptedFragmentsElement.Elements())
                 {
-                    ExtractScriptedContentFragment(elem, fragmentsDir);
+                    ExtractScriptedContentFragment(elem, fragmentsDir, out var fragmentId);
+                    dirMetadata.DirectoryOrder[fragmentId] = ++i;
                 }
+
+                var metadataFileName = Path.Combine(fragmentsDir, Constants.FileMetadataFilename);
+                dirMetadata.Serialize(metadataFileName);
             }
 
             return fragmentsDir;
         }
 
-        private string ExtractScriptedContentFragment(XElement contentElement, string outputDir)
+        private string ExtractScriptedContentFragment(XElement contentElement, string outputDir, out string fragmentId)
         {
-            var fragmentId = contentElement.Attribute("instanceIdentifier").Value;
+            fragmentId = contentElement.Attribute(Constants.InstanceIdentifierAttributeName).Value;
             var fragmentDir = Path.Combine(outputDir, fragmentId);
 
             if (!Directory.Exists(fragmentDir))
@@ -266,26 +281,28 @@ namespace nDriven.Telligent.ThemeUtils
             
             Logger.WriteLine($"Extracting scripted content fragment [{fragmentId}] to {fragmentDir}...");
             
-            ExtractMetadata(contentElement, fragmentDir);
+            ExtractMetadata(contentElement, fragmentDir, Constants.ContentFragmentMetadataFilename);
 
             foreach (var elem in contentElement.Elements())
             {
                 var nodeName = elem.Name.LocalName;
                 switch (nodeName)
                 {
-                    case "additionalCssScript":
-                    case "headerScript":
-                    case "contentScript":
+                    case Constants.RequiredContextElementName:
+                        ExtractXml(elem, fragmentDir);
+                        break;
+                    case Constants.AdditionalCssScriptElementName:
+                    case Constants.HeaderScriptElementName:
+                    case Constants.ContentScriptElementName:
                         ExtractContentScript(elem, fragmentDir);
                         break;
-                    case "configuration":
-                        ExtractCData(elem, fragmentDir, "xml");
+                    case Constants.ConfigurationElementName:
+                        ExtractCData(elem, fragmentDir, Constants.XmlExtension);
                         break;
-                    case "languageResources":
+                    case Constants.LanguageResourcesElementName:
                         ExtractLanguageResources(elem, fragmentDir);
                         break;
-                    
-                    case "files":
+                    case Constants.FilesElementName:
                         ExtractDirectory(elem, fragmentDir);
                         break;
                 }
@@ -305,10 +322,14 @@ namespace nDriven.Telligent.ThemeUtils
             
             Logger.WriteLine($"Extracting folder {dirName} to {dirPath}...");
 
+            var metadata = FileMetadata.FromDirectory(dirElement);
+
             foreach (var fileElement in dirElement.Elements())
             {
                 ExtractFile(fileElement, dirPath);
             }
+
+            metadata.Serialize(Path.Combine(dirPath, Constants.FileMetadataFilename));
 
             return dirPath;
         }
@@ -316,7 +337,7 @@ namespace nDriven.Telligent.ThemeUtils
 
         private string ExtractFile(XElement fileElement, string outputDir, string prefix = "")
         {
-            var fileName = $"{prefix}{fileElement.Attribute("name")?.Value}";
+            var fileName = $"{prefix}{fileElement.Attribute(Constants.NameAttributeName)?.Value}";
             var filePath = Path.Combine(outputDir, fileName);
 
             var base64FileData = fileElement.Value;

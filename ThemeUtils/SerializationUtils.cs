@@ -1,6 +1,11 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
+using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using Formatting = Newtonsoft.Json.Formatting;
 
 namespace nDriven.Telligent.ThemeUtils
 {
@@ -36,5 +41,40 @@ namespace nDriven.Telligent.ThemeUtils
             textWriter.Flush();
             return textWriter.ToString();
         }
+
+        public static T Deserialize<T>(this FileInfo fileInfo)
+        {
+            using var reader = new JsonTextReader(new StreamReader(new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read)));
+            return Serializer.Deserialize<T>(reader);
+        }
+
+
+        public static void SaveXml(XElement xElem, string outputPath)
+        {
+            SaveXml(outputPath, xElem.Save);
+        }
+        public static void SaveXml(XDocument xDoc, string outputPath)
+        {
+            SaveXml(outputPath, xDoc.Save);
+        }
+
+        private static void SaveXml(string outputPath, Action<XmlWriter> saveAction)
+        {
+            var xws = new XmlWriterSettings();
+            xws.Indent = true;
+            xws.IndentChars = "\t";
+            xws.OmitXmlDeclaration = true;
+            xws.Encoding = Encoding.UTF8;
+
+            var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            using (var xw = XmlWriter.Create(fs, xws))
+            {
+                saveAction(xw);
+            }
+            fs.Close();
+        }
+        
+        
+        
     }
 }
