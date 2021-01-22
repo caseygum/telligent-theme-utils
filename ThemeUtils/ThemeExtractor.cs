@@ -10,17 +10,17 @@ namespace nDriven.Telligent.ThemeUtils
     public class ThemeExtractor
     {
         
-        public string ThemeFilePath { get; }
+        public string InputFilePath { get; }
         public string OutputDirectory { get; }
 
         public TextWriter Logger { get; }
 
-        public ThemeExtractor([NotNull] string themeFilePath, [NotNull] string outputDirectory, bool clean = false, TextWriter logger = null)
+        public ThemeExtractor([NotNull] string inputFilePath, [NotNull] string outputDirectory, bool clean = false, TextWriter logger = null)
         {
-            ThemeFilePath = themeFilePath.Trim();
-            if (!File.Exists(ThemeFilePath))
+            InputFilePath = inputFilePath.Trim();
+            if (!File.Exists(InputFilePath))
             {
-                throw new FileNotFoundException("File could not be found.", ThemeFilePath);
+                throw new FileNotFoundException("File could not be found.", InputFilePath);
             }
 
             OutputDirectory = outputDirectory.Trim();
@@ -49,7 +49,7 @@ namespace nDriven.Telligent.ThemeUtils
 
         public void Extract()
         {
-            var xdoc = XDocument.Load(ThemeFilePath);
+            var xdoc = XDocument.Load(InputFilePath);
             if (xdoc.Root == null) throw new ArgumentException("XML root element not found.");
             if (xdoc.Root.Name == Constants.ThemesElementName)
             {
@@ -62,7 +62,11 @@ namespace nDriven.Telligent.ThemeUtils
             {
                 ExtractTheme(xdoc.Root);
             }
-            else throw new ArgumentException($"XML root element must be <{Constants.ThemesElementName}> or <{Constants.ThemeElementName}>.  Found <{xdoc.Root.Name}> instead.");
+            else if (xdoc.Root.Name == Constants.ScriptedContentFragmentsElementName)
+            {
+                ExtractContentFragments(xdoc.Root, OutputDirectory);
+            }
+            else throw new ArgumentException($"XML root element must be <{Constants.ThemesElementName}>, <{Constants.ThemeElementName}>, or <{Constants.ScriptedContentFragmentsElementName}>.  Found <{xdoc.Root.Name}> instead.");
             
             Logger.WriteLine("Done!");
         }
@@ -242,15 +246,28 @@ namespace nDriven.Telligent.ThemeUtils
 
         private string ExtractContentFragments(XElement fragmentsElement, string outputDir)
         {
-            var fragmentsDir = Path.Combine(outputDir, Constants.ContentFragmentsElementName);
-            if (!Directory.Exists(fragmentsDir))
+            XElement scriptedFragmentsElement;
+            string fragmentsDir = outputDir;
+
+            if (fragmentsElement.Name.LocalName == Constants.ContentFragmentsElementName)
             {
-                Directory.CreateDirectory(fragmentsDir);
+                fragmentsDir = Path.Combine(outputDir, Constants.ContentFragmentsElementName);
+                if (!Directory.Exists(fragmentsDir))
+                {
+                    Directory.CreateDirectory(fragmentsDir);
+                }
+
+                scriptedFragmentsElement = fragmentsElement.Elements(Constants.ScriptedContentFragmentsElementName).FirstOrDefault();
+            } else if (fragmentsElement.Name.LocalName == Constants.ScriptedContentFragmentsElementName)
+            {
+                scriptedFragmentsElement = fragmentsElement;
+            }
+            else
+            {
+                throw new ArgumentException("Invalid content fragments element.");
             }
             
             Logger.WriteLine($"Extracting content fragments to {fragmentsDir}...");
-
-            var scriptedFragmentsElement = fragmentsElement.Elements(Constants.ScriptedContentFragmentsElementName).FirstOrDefault();
             
             if (scriptedFragmentsElement != null)
             {
